@@ -3,10 +3,13 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:poc/Asset.dart';
+import 'package:poc/Data/Asset.dart';
+import 'package:poc/Data/total_card.dart';
+import 'package:poc/structure/stack_type_general.dart';
 import 'package:share/share.dart';
 
 void main() => runApp(MyApp());
@@ -30,33 +33,16 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  final GlobalKey _globalKey = GlobalKey();
+  final TotalCards _totalCardsClass = TotalCards();
+  List<Widget> totalCards = List.empty(growable: true);
   Uint8List? imageInMemory = Uint8List.fromList(List.empty(growable: true));
+  int curIndex = 0;
+  final PageController _pageController = PageController(initialPage: 0 ,viewportFraction: 0.9);
 
-  Future<Uint8List?> _capturePng() async {
-    try {
-      RenderRepaintBoundary? boundary = _globalKey.currentContext!
-          .findRenderObject() as RenderRepaintBoundary?;
-      ui.Image? image = await boundary?.toImage(pixelRatio: 3.0);
-      ByteData? byteData =
-          await image?.toByteData(format: ui.ImageByteFormat.png);
-      Uint8List? pngBytes = byteData?.buffer.asUint8List();
-      final directory = (await getExternalStorageDirectory()).path;
-      File imgFile = File('$directory/flutter.png');
-      imgFile.writeAsBytesSync(pngBytes!);
-      List<String> paths = List.empty(growable: true);
-      paths.add('$directory/flutter.png');
-      Share.shareFiles(paths,
-          subject: 'Share ScreenShot',
-          sharePositionOrigin: boundary!.localToGlobal(Offset.zero) & boundary.size
-      );
-      setState(() {
-        imageInMemory = pngBytes;
-      });
-      return pngBytes;
-    } catch (e) {
-      return null;
-    }
+  @override
+  void initState() {
+    super.initState();
+    totalCards = _totalCardsClass.getTotalCards();
   }
 
   @override
@@ -72,63 +58,68 @@ class _MyHomePageState extends State<MyHomePage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            RepaintBoundary(
-              key: _globalKey,
-              child: _cardWidget(),
+            Container(
+              constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height*0.27),
+                child:PageView.builder(
+                itemCount: totalCards.length,
+                controller: _pageController,
+                itemBuilder: (BuildContext context, int index) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: totalCards[index],
+                  );
+                },
+                onPageChanged: (index) {
+                  setState(() {
+                    curIndex = index;
+                  });
+                },
+              ),
             ),
-            Align(
-                alignment: Alignment.bottomCenter,
-                child: InkWell(
-                  onTap: () {
-                    _capturePng().then((value) {
-
-                    });
-                  },
-                  child: Container(
-                    color: Colors.blue,
-                    padding: const EdgeInsets.all(16.0),
-                    child: const Text(
-                      'Capture Image',
-                      style: TextStyle(fontSize: 20.0),
-                    ),
-                  ),
-                ))
+            InkWell(
+              onTap: () {
+                _capturePng((totalCards[curIndex] as StackTypeGeneral).globalKey).then((value) {});
+              },
+              child: Container(
+                color: Colors.blue,
+                padding: const EdgeInsets.all(16.0),
+                child: const Text(
+                  'Capture Image',
+                  style: TextStyle(fontSize: 20.0),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _cardWidget() {
-    return Stack(
-      children: [
-        Image.asset(
-          Assets.card_background,
-          width: MediaQuery.of(context).size.width * 0.8,
-        ),
-        const Positioned(
-          child: Text(
-            '7982611621',
-            style: TextStyle(
-                fontSize: 16.0,
-                color: Colors.black,
-                fontWeight: FontWeight.bold),
-          ),
-          bottom: 8.0,
-          right: 12.0,
-        ),
-        const Positioned(
-          top: 80.0,
-          left: 52.0,
-          child: Text(
-            'Goyal Enterprises',
-            style: TextStyle(
-                fontSize: 24.0,
-                color: Colors.black,
-                fontWeight: FontWeight.bold),
-          ),
-        )
-      ],
-    );
+  Future<Uint8List?> _capturePng(GlobalKey _globalKey) async {
+    try {
+      RenderRepaintBoundary? boundary = _globalKey.currentContext!
+          .findRenderObject() as RenderRepaintBoundary?;
+      ui.Image? image = await boundary?.toImage(pixelRatio: 3.0);
+      ByteData? byteData =
+      await image?.toByteData(format: ui.ImageByteFormat.png);
+      Uint8List? pngBytes = byteData?.buffer.asUint8List();
+      final directory = (await getExternalStorageDirectory()).path;
+      File imgFile = File('$directory/flutter.png');
+      imgFile.writeAsBytesSync(pngBytes!);
+      List<String> paths = List.empty(growable: true);
+      paths.add('$directory/flutter.png');
+      Share.shareFiles(paths,
+          subject: 'Share ScreenShot',
+          sharePositionOrigin:
+          boundary!.localToGlobal(Offset.zero) & boundary.size);
+      setState(() {
+        imageInMemory = pngBytes;
+      });
+      return pngBytes;
+    } catch (e) {
+      print("debug: $e");
+      return null;
+    }
   }
+
 }
